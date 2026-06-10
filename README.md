@@ -1,4 +1,5 @@
-# 🚀 DevOps Project 009 — Deploy an E-Commerce Three-Tier Application on AWS EKS with Helm
+# 🚀 DevOps Project 009
+# Deploy an E-Commerce Three-Tier Application on AWS EKS with Helm
 
 <p align="center">
   <img src="https://imgur.com/placeholder-robotshop.png" alt="RobotShop EKS Banner" width="800"/>
