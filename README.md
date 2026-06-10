@@ -1,128 +1,345 @@
-# Sample Microservice Application
+# 🚀 DevOps Project 009 — Deploy an E-Commerce Three-Tier Application on AWS EKS with Helm
 
-Stan's Robot Shop is a sample microservice application you can use as a sandbox to test and learn containerised application orchestration and monitoring techniques. It is not intended to be a comprehensive reference example of how to write a microservices application, although you will better understand some of those concepts by playing with Stan's Robot Shop. To be clear, the error handling is patchy and there is not any security built into the application.
+<p align="center">
+  <img src="https://img.shields.io/badge/AWS_EKS-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="AWS EKS"/>
+  <img src="https://img.shields.io/badge/Kubernetes-1.34-326CE5?style=flat&logo=kubernetes&logoColor=white" alt="Kubernetes"/>
+  <img src="https://img.shields.io/badge/Helm-3.21.0-0F1689?style=flat&logo=helm&logoColor=white" alt="Helm"/>
+  <img src="https://img.shields.io/badge/eksctl-0.227.0-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="eksctl"/>
+  <img src="https://img.shields.io/badge/AWS_ALB-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="ALB"/>
+  <img src="https://img.shields.io/badge/EBS_CSI-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="EBS"/>
+  <img src="https://img.shields.io/badge/kubectl-1.36.1-326CE5?style=flat&logo=kubernetes&logoColor=white" alt="kubectl"/>
+  <img src="https://img.shields.io/badge/Ubuntu-22.04-E95420?style=flat&logo=ubuntu&logoColor=white" alt="Ubuntu"/>
+</p>
 
-You can get more detailed information from my [blog post](https://www.instana.com/blog/stans-robot-shop-sample-microservice-application/) about this sample microservice application.
+---
 
-This sample microservice application has been built using these technologies:
-- NodeJS ([Express](http://expressjs.com/))
-- Java ([Spring Boot](https://spring.io/))
-- Python ([Flask](http://flask.pocoo.org))
-- Golang
-- PHP (Apache)
-- MongoDB
-- Redis
-- MySQL ([Maxmind](http://www.maxmind.com) data)
-- RabbitMQ
-- Nginx
-- AngularJS (1.x)
+## 📌 Project Overview
 
-The various services in the sample application already include all required Instana components installed and configured. The Instana components provide automatic instrumentation for complete end to end [tracing](https://docs.instana.io/core_concepts/tracing/), as well as complete visibility into time series metrics for all the technologies.
+This project demonstrates deploying a fully functional **3-Tier E-Commerce Application (Stan's Robot Shop)** on **AWS EKS** using **Helm**. The application consists of 12 microservices built with different technologies including NodeJS, Java, Python, Golang, PHP, MongoDB, Redis, MySQL, and RabbitMQ — all orchestrated on Kubernetes with persistent storage and internet-facing load balancing via AWS ALB.
 
-To see the application performance results in the Instana dashboard, you will first need an Instana account. Don't worry a [trial account](https://instana.com/trial?utm_source=github&utm_medium=robot_shop) is free.
+### ✅ Key Features
 
-## Build from Source
-To optionally build from source (you will need a newish version of Docker to do this) use Docker Compose. Optionally edit the `.env` file to specify an alternative image registry and version tag; see the official [documentation](https://docs.docker.com/compose/env-file/) for more information.
+- **EKS Cluster** — Managed Kubernetes on AWS with t3.medium worker nodes
+- **Helm Deployment** — Single command to deploy all 12 microservices
+- **AWS ALB Ingress** — Internet-facing Application Load Balancer
+- **EBS CSI Driver** — Persistent storage for stateful services (Redis, MySQL, MongoDB)
+- **IAM OIDC** — Secure pod-level AWS permissions via IAM roles
+- **Auto Scaling** — Node group with min/max scaling configured
 
-To download the tracing module for Nginx, it needs a valid Instana agent key. Set this in the environment before starting the build.
+---
 
-```shell
-$ export INSTANA_AGENT_KEY="<your agent key>"
-```
+## 🏗️ Architecture
 
-Now build all the images.
+\`\`\`
+Internet
+    │
+    ▼
+AWS ALB (Application Load Balancer)
+    │  [internet-facing, port 80]
+    ▼
+Kubernetes Ingress (robot-shop namespace)
+    │
+    ▼
+┌─────────────────────────────────────────────┐
+│           AWS EKS Cluster                    │
+│         (Kubernetes v1.34)                   │
+│                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │   web    │  │ catalogue│  │   cart   │  │
+│  │ (nginx)  │  │ (NodeJS) │  │ (NodeJS) │  │
+│  └──────────┘  └──────────┘  └──────────┘  │
+│                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │  user    │  │ payment  │  │ shipping │  │
+│  │ (NodeJS) │  │ (Python) │  │  (Java)  │  │
+│  └──────────┘  └──────────┘  └──────────┘  │
+│                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ ratings  │  │dispatch  │  │rabbitmq  │  │
+│  │  (PHP)   │  │ (Golang) │  │          │  │
+│  └──────────┘  └──────────┘  └──────────┘  │
+│                                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │ mongodb  │  │  mysql   │  │  redis   │  │
+│  │  (EBS)   │  │  (EBS)   │  │  (EBS)   │  │
+│  └──────────┘  └──────────┘  └──────────┘  │
+│                                             │
+│  Node Group: 2x t3.medium (us-east-1)      │
+└─────────────────────────────────────────────┘
+\`\`\`
 
-```shell
-$ docker-compose build
-```
+---
 
-If you modified the `.env` file and changed the image registry, you need to push the images to that registry
+## 🛠️ Tools & Versions
 
-```shell
-$ docker-compose push
-```
+| Tool | Version | Purpose |
+|------|---------|---------|
+| AWS EKS | Kubernetes 1.34 | Managed Kubernetes |
+| eksctl | 0.227.0 | EKS Cluster Management |
+| kubectl | 1.36.1 | Kubernetes CLI |
+| Helm | 3.21.0 | K8s Package Manager |
+| AWS CLI | 2.34.64 | AWS Management |
+| AWS ALB Controller | 2.11.0 | Load Balancer |
+| EBS CSI Driver | Latest | Persistent Storage |
+| EC2 Jump Server | t2.micro Ubuntu 22.04 | Management Node |
+| Worker Nodes | t3.medium x2 | Compute |
 
-## Run Locally
-You can run it locally for testing.
+---
 
-If you did not build from source, don't worry all the images are on Docker Hub. Just pull down those images first using:
+## 📁 Repository Structure
 
-```shell
-$ docker-compose pull
-```
+\`\`\`
+DevOps-Project-009/
+├── K8s/
+│   └── helm/               # Helm chart for RobotShop
+│       ├── values.yaml     # Modified: gp2 StorageClass
+│       └── templates/      # K8s manifests
+├── app/                    # Microservices source code
+│   ├── cart/               # NodeJS
+│   ├── catalogue/          # NodeJS
+│   ├── dispatch/           # Golang
+│   ├── mongodb/            # MongoDB
+│   ├── mysql/              # MySQL
+│   ├── payment/            # Python
+│   ├── ratings/            # PHP
+│   ├── shipping/           # Java
+│   ├── user/               # NodeJS
+│   └── web/                # Nginx + AngularJS
+├── ingress.yaml            # AWS ALB Ingress config
+├── iam_policy.json         # ALB Controller IAM policy
+└── README.md
+\`\`\`
 
-Fire up Stan's Robot Shop with:
+---
 
-```shell
-$ docker-compose up
-```
+## 🚀 Step-by-Step Implementation Guide
 
-If you want to fire up some load as well:
+### PHASE 1 — Jump Server Setup
 
-```shell
-$ docker-compose -f docker-compose.yaml -f docker-compose-load.yaml up
-```
+\`\`\`bash
+# Launch t2.micro EC2 (Ubuntu 22.04) then SSH in
 
-If you are running it locally on a Linux host you can also run the Instana [agent](https://docs.instana.io/quick_start/agent_setup/container/docker/) locally, unfortunately the agent is currently not supported on Mac.
+# System update
+sudo apt update && sudo apt upgrade -y
 
-There is also only limited support on ARM architectures at the moment.
+# AWS CLI v2
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo apt install -y unzip && unzip awscliv2.zip
+sudo ./aws/install && rm -rf awscliv2.zip aws/
+aws --version
 
-## Marathon / DCOS
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl && sudo install -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl
+kubectl version --client
 
-The manifests for robotshop are in the *DCOS/* directory. These manifests were built using a fresh install of DCOS 1.11.0. They should work on a vanilla HA or single instance install.
+# eksctl
+ARCH=amd64 && PLATFORM=$(uname -s)_$ARCH
+curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+sudo install -m 0755 /tmp/eksctl /usr/local/bin && rm /tmp/eksctl
+eksctl version
 
-You may install Instana via the DCOS package manager, instructions are here: https://github.com/dcos/examples/tree/master/instana-agent/1.9
+# Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+helm version
 
-## Kubernetes
-You can run Kubernetes locally using [minikube](https://github.com/kubernetes/minikube) or on one of the many cloud providers.
+# AWS Configure
+aws configure
+aws sts get-caller-identity
+\`\`\`
 
-The Docker container images are all available on [Docker Hub](https://hub.docker.com/u/robotshop/).
+---
 
-Install Stan's Robot Shop to your Kubernetes cluster using the [Helm](K8s/helm/README.md) chart.
+### PHASE 2 — EKS Cluster
 
-To deploy the Instana agent to Kubernetes, just use the [helm](https://github.com/instana/helm-charts) chart.
+\`\`\`bash
+export cluster_name=robot-shop-cluster
+export account_id=$(aws sts get-caller-identity --query Account --output text)
 
-## Accessing the Store
-If you are running the store locally via *docker-compose up* then, the store front is available on localhost port 8080 [http://localhost:8080](http://localhost:8080/)
+# Create cluster
+eksctl create cluster \
+  --name $cluster_name \
+  --region us-east-1 \
+  --nodegroup-name robot-shop-ng \
+  --node-type t3.medium \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 3
 
-If you are running the store on Kubernetes via minikube then, find the IP address of Minikube and the Node Port of the web service.
+# Verify
+kubectl get nodes
 
-```shell
-$ minikube ip
-$ kubectl get svc web
-```
+# OIDC Provider
+eksctl utils associate-iam-oidc-provider --cluster $cluster_name --approve
+\`\`\`
 
-If you are using a cloud Kubernetes / Openshift / Mesosphere then it will be available on the load balancer of that system.
+---
 
-## Load Generation
-A separate load generation utility is provided in the `load-gen` directory. This is not automatically run when the application is started. The load generator is built with Python and [Locust](https://locust.io). The `build.sh` script builds the Docker image, optionally taking *push* as the first argument to also push the image to the registry. The registry and tag settings are loaded from the `.env` file in the parent directory. The script `load-gen.sh` runs the image, it takes a number of command line arguments. You could run the container inside an orchestration system (K8s) as well if you want to, an example descriptor is provided in K8s directory. For End-user Monitoring ,load is not automatically generated but by navigating through the Robotshop from the browser .For more details see the [README](load-gen/README.md) in the load-gen directory.  
+### PHASE 3 — AWS ALB Controller
 
-## Website Monitoring / End-User Monitoring
+\`\`\`bash
+# IAM Policy (v2.11.0)
+curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.11.0/docs/install/iam_policy.json
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
 
-### Docker Compose
+# IAM Service Account
+eksctl create iamserviceaccount \
+  --cluster=$cluster_name \
+  --namespace=kube-system \
+  --name=aws-load-balancer-controller \
+  --role-name AmazonEKSLoadBalancerControllerRole \
+  --attach-policy-arn=arn:aws:iam::${account_id}:policy/AWSLoadBalancerControllerIAMPolicy \
+  --approve
 
-To enable Website Monioring / End-User Monitoring (EUM) see the official [documentation](https://docs.instana.io/website_monitoring/) for how to create a configuration. There is no need to inject the JavaScript fragment into the page, this will be handled automatically. Just make a note of the unique key and set the environment variable `INSTANA_EUM_KEY` and `INSTANA_EUM_REPORTING_URL` for the web image within `docker-compose.yaml`.
+# Install via Helm
+export vpc_id=$(aws eks describe-cluster --name $cluster_name \
+  --query "cluster.resourcesVpcConfig.vpcId" --output text)
 
-### Kubernetes
+helm repo add eks https://aws.github.io/eks-charts && helm repo update eks
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=$cluster_name \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region=us-east-1 \
+  --set vpcId=$vpc_id
 
-The Helm chart for installing Stan's Robot Shop supports setting the key and endpoint url required for website monitoring, see the [README](K8s/helm/README.md).
+kubectl get deployment -n kube-system aws-load-balancer-controller
+\`\`\`
 
-## Prometheus
+---
 
-The cart and payment services both have Prometheus metric endpoints. These are accessible on `/metrics`. The cart service provides:
+### PHASE 4 — EBS CSI Driver
 
-* Counter of the number of items added to the cart
+\`\`\`bash
+eksctl create iamserviceaccount \
+  --name ebs-csi-controller-sa \
+  --namespace kube-system \
+  --cluster $cluster_name \
+  --role-name AmazonEKS_EBS_CSI_DriverRole \
+  --role-only \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve
 
-The payment services provides:
+eksctl create addon \
+  --name aws-ebs-csi-driver \
+  --cluster $cluster_name \
+  --service-account-role-arn arn:aws:iam::${account_id}:role/AmazonEKS_EBS_CSI_DriverRole \
+  --force
 
-* Counter of the number of items perchased
-* Histogram of the total number of items in each cart
-* Histogram of the total value of each cart
+kubectl get pods -n kube-system | grep ebs
+\`\`\`
 
-To test the metrics use:
+---
 
-```shell
-$ curl http://<host>:8080/api/cart/metrics
-$ curl http://<host>:8080/api/payment/metrics
-```
+### PHASE 5 — Deploy RobotShop
 
+\`\`\`bash
+# Clone this repo
+git clone https://github.com/hmurafique/DevOps-Project-009.git
+cd DevOps-Project-009
+
+# Create namespace
+kubectl create namespace robot-shop
+
+# Deploy with Helm
+helm install robot-shop K8s/helm --namespace robot-shop
+
+# Verify (wait 2-3 minutes)
+kubectl get pods -n robot-shop
+\`\`\`
+
+---
+
+### PHASE 6 — Configure Ingress
+
+\`\`\`bash
+kubectl apply -f ingress.yaml
+
+# Wait for ALB (2-3 minutes)
+kubectl get ingress -n robot-shop
+\`\`\`
+
+Access: \`http://<ALB-ADDRESS>\`
+
+---
+
+## 📊 Microservices
+
+| Service | Technology | Port |
+|---------|-----------|------|
+| web | Nginx + AngularJS | 8080 |
+| catalogue | NodeJS | 8080 |
+| cart | NodeJS | 8080 |
+| user | NodeJS | 8080 |
+| payment | Python | 8080 |
+| shipping | Java (Spring Boot) | 8080 |
+| ratings | PHP (Apache) | 80 |
+| dispatch | Golang | 55555 |
+| mongodb | MongoDB | 27017 |
+| mysql | MySQL 5.7 | 3306 |
+| redis | Redis | 6379 |
+| rabbitmq | RabbitMQ | 5672 |
+
+---
+
+## ⚠️ Common Issues & Fixes
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| Pods Pending — Insufficient memory | t3.small not enough RAM | Use t3.medium nodes |
+| PVC Pending — standard StorageClass | EKS uses gp2, not standard | Already fixed in values.yaml |
+| ALB ADDRESS empty — 403 AccessDenied | IAM policy missing permissions | Use iam_policy.json v2.11.0 |
+| Backend service does not exist | web service not deployed | Run helm upgrade |
+| Shipping pod 0/1 | MySQL connection on startup | kubectl rollout restart deployment/shipping |
+
+---
+
+## 💰 Cost Optimization
+
+\`\`\`bash
+# Scale down nodes when not in use
+eksctl scale nodegroup \
+  --cluster robot-shop-cluster \
+  --name robot-shop-ng-medium \
+  --nodes 0 --nodes-min 0 --nodes-max 3
+
+# Scale back up
+eksctl scale nodegroup \
+  --cluster robot-shop-cluster \
+  --name robot-shop-ng-medium \
+  --nodes 2 --nodes-min 1 --nodes-max 3
+\`\`\`
+
+---
+
+## 🧹 Cleanup
+
+\`\`\`bash
+eksctl delete cluster --name robot-shop-cluster --region us-east-1
+\`\`\`
+
+---
+
+## 📚 Reference
+
+- [Original Project](https://github.com/NotHarshhaa/DevOps-Projects/tree/master/DevOps-Project-15)
+- [RobotShop by Instana](https://github.com/instana/robot-shop)
+- [eksctl Docs](https://eksctl.io)
+- [AWS ALB Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller)
+
+---
+
+## 🛠️ Author
+
+**Hafiz Muhammad Umar Rafique** — DevOps & Cloud Engineer
+
+[![GitHub](https://img.shields.io/badge/GitHub-hmurafique-181717?style=flat&logo=github&logoColor=white)](https://github.com/hmurafique)
+[![DockerHub](https://img.shields.io/badge/DockerHub-hmurafique93-2496ED?style=flat&logo=docker&logoColor=white)](https://hub.docker.com/u/hmurafique93)
+
+---
+
+> This project is part of a hands-on DevOps learning series based on [NotHarshhaa/DevOps-Projects](https://github.com/NotHarshhaa/DevOps-Projects). All implementation, fixes, and configurations are done independently from scratch.
