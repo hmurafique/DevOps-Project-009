@@ -1,12 +1,16 @@
 # 🚀 DevOps Project 009 — Deploy an E-Commerce Three-Tier Application on AWS EKS with Helm
 
 <p align="center">
+  <img src="https://imgur.com/placeholder-robotshop.png" alt="RobotShop EKS Banner" width="800"/>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/AWS_EKS-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="AWS EKS"/>
   <img src="https://img.shields.io/badge/Kubernetes-1.34-326CE5?style=flat&logo=kubernetes&logoColor=white" alt="Kubernetes"/>
   <img src="https://img.shields.io/badge/Helm-3.21.0-0F1689?style=flat&logo=helm&logoColor=white" alt="Helm"/>
   <img src="https://img.shields.io/badge/eksctl-0.227.0-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="eksctl"/>
   <img src="https://img.shields.io/badge/AWS_ALB-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="ALB"/>
-  <img src="https://img.shields.io/badge/EBS_CSI-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="EBS"/>
+  <img src="https://img.shields.io/badge/AWS_EBS-FF9900?style=flat&logo=amazonaws&logoColor=white" alt="EBS"/>
   <img src="https://img.shields.io/badge/kubectl-1.36.1-326CE5?style=flat&logo=kubernetes&logoColor=white" alt="kubectl"/>
   <img src="https://img.shields.io/badge/Ubuntu-22.04-E95420?style=flat&logo=ubuntu&logoColor=white" alt="Ubuntu"/>
 </p>
@@ -30,7 +34,7 @@ This project demonstrates deploying a fully functional **3-Tier E-Commerce Appli
 
 ## 🏗️ Architecture
 
-\`\`\`
+```
 Internet
     │
     ▼
@@ -40,33 +44,36 @@ AWS ALB (Application Load Balancer)
 Kubernetes Ingress (robot-shop namespace)
     │
     ▼
-┌─────────────────────────────────────────────┐
-│           AWS EKS Cluster                    │
-│         (Kubernetes v1.34)                   │
-│                                             │
+┌────────────────────────────────────────────┐
+│           AWS EKS Cluster                  │
+│         (Kubernetes v1.34)                 │
+│                                            │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │   web    │  │ catalogue│  │   cart   │  │
 │  │ (nginx)  │  │ (NodeJS) │  │ (NodeJS) │  │
 │  └──────────┘  └──────────┘  └──────────┘  │
-│                                             │
+│                                            │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │  user    │  │ payment  │  │ shipping │  │
 │  │ (NodeJS) │  │ (Python) │  │  (Java)  │  │
 │  └──────────┘  └──────────┘  └──────────┘  │
-│                                             │
+│                                            │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │ ratings  │  │dispatch  │  │rabbitmq  │  │
 │  │  (PHP)   │  │ (Golang) │  │          │  │
 │  └──────────┘  └──────────┘  └──────────┘  │
-│                                             │
+│                                            │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
 │  │ mongodb  │  │  mysql   │  │  redis   │  │
 │  │  (EBS)   │  │  (EBS)   │  │  (EBS)   │  │
 │  └──────────┘  └──────────┘  └──────────┘  │
-│                                             │
+│                                            │
 │  Node Group: 2x t3.medium (us-east-1)      │
-└─────────────────────────────────────────────┘
-\`\`\`
+└────────────────────────────────────────────┘
+         │                    │
+    EBS Volume           EBS Volume
+   (Persistent)         (Persistent)
+```
 
 ---
 
@@ -88,7 +95,7 @@ Kubernetes Ingress (robot-shop namespace)
 
 ## 📁 Repository Structure
 
-\`\`\`
+```
 DevOps-Project-009/
 ├── K8s/
 │   └── helm/               # Helm chart for RobotShop
@@ -108,33 +115,56 @@ DevOps-Project-009/
 ├── ingress.yaml            # AWS ALB Ingress config
 ├── iam_policy.json         # ALB Controller IAM policy
 └── README.md
-\`\`\`
+```
 
 ---
 
 ## 🚀 Step-by-Step Implementation Guide
 
-### PHASE 1 — Jump Server Setup
+### Prerequisites
 
-\`\`\`bash
-# Launch t2.micro EC2 (Ubuntu 22.04) then SSH in
+- AWS Account with IAM user (AdministratorAccess)
+- EC2 Key Pair
+- Basic knowledge of Kubernetes
 
+---
+
+### PHASE 1 — Jump Server (EC2) Setup
+
+#### 1.1 — Launch EC2 Instance
+
+| Setting | Value |
+|---------|-------|
+| Name | `eks-server` |
+| AMI | Ubuntu 22.04 LTS |
+| Instance Type | `t2.micro` |
+| Storage | 20 GB |
+| Security Group | Port 22 (SSH) only |
+
+#### 1.2 — Install Required Tools
+
+```bash
 # System update
 sudo apt update && sudo apt upgrade -y
 
 # AWS CLI v2
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-sudo apt install -y unzip && unzip awscliv2.zip
-sudo ./aws/install && rm -rf awscliv2.zip aws/
+sudo apt install -y unzip
+unzip awscliv2.zip
+sudo ./aws/install
+rm -rf awscliv2.zip aws/
 aws --version
 
-# kubectl
+# kubectl (latest stable)
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x kubectl && sudo install -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl
+chmod +x kubectl
+sudo install -m 0755 kubectl /usr/local/bin/kubectl
+rm kubectl
 kubectl version --client
 
-# eksctl
-ARCH=amd64 && PLATFORM=$(uname -s)_$ARCH
+# eksctl (latest)
+ARCH=amd64
+PLATFORM=$(uname -s)_$ARCH
 curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
 tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
 sudo install -m 0755 /tmp/eksctl /usr/local/bin && rm /tmp/eksctl
@@ -143,49 +173,78 @@ eksctl version
 # Helm
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 helm version
+```
 
-# AWS Configure
+#### 1.3 — AWS Configure
+
+```bash
 aws configure
+# Enter: Access Key, Secret Key, Region (us-east-1), Output (json)
+
+# Verify
 aws sts get-caller-identity
-\`\`\`
+```
 
 ---
 
-### PHASE 2 — EKS Cluster
+### PHASE 2 — EKS Cluster Setup
 
-\`\`\`bash
-export cluster_name=robot-shop-cluster
-export account_id=$(aws sts get-caller-identity --query Account --output text)
+#### 2.1 — Create EKS Cluster
 
-# Create cluster
+```bash
 eksctl create cluster \
-  --name $cluster_name \
+  --name robot-shop-cluster \
   --region us-east-1 \
   --nodegroup-name robot-shop-ng \
   --node-type t3.medium \
   --nodes 2 \
   --nodes-min 1 \
   --nodes-max 3
+```
 
-# Verify
+⚠️ Takes 15-20 minutes
+
+```bash
+# Verify nodes
 kubectl get nodes
+```
 
-# OIDC Provider
+#### 2.2 — Configure IAM OIDC Provider
+
+```bash
+export cluster_name=robot-shop-cluster
+export account_id=$(aws sts get-caller-identity --query Account --output text)
+
+# Get OIDC ID
+oidc_id=$(aws eks describe-cluster --name $cluster_name \
+  --query "cluster.identity.oidc.issuer" \
+  --output text | cut -d '/' -f 5)
+
+# Check if already exists
+aws iam list-open-id-connect-providers | grep $oidc_id
+
+# Associate OIDC provider (if not exists)
 eksctl utils associate-iam-oidc-provider --cluster $cluster_name --approve
-\`\`\`
+```
 
 ---
 
-### PHASE 3 — AWS ALB Controller
+### PHASE 3 — AWS ALB Controller Setup
 
-\`\`\`bash
-# IAM Policy (v2.11.0)
+#### 3.1 — Create IAM Policy
+
+```bash
+# Download latest policy (v2.11.0)
 curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.11.0/docs/install/iam_policy.json
+
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
     --policy-document file://iam_policy.json
+```
 
-# IAM Service Account
+#### 3.2 — Create IAM Service Account
+
+```bash
 eksctl create iamserviceaccount \
   --cluster=$cluster_name \
   --namespace=kube-system \
@@ -193,12 +252,20 @@ eksctl create iamserviceaccount \
   --role-name AmazonEKSLoadBalancerControllerRole \
   --attach-policy-arn=arn:aws:iam::${account_id}:policy/AWSLoadBalancerControllerIAMPolicy \
   --approve
+```
 
-# Install via Helm
-export vpc_id=$(aws eks describe-cluster --name $cluster_name \
-  --query "cluster.resourcesVpcConfig.vpcId" --output text)
+#### 3.3 — Install ALB Controller via Helm
 
-helm repo add eks https://aws.github.io/eks-charts && helm repo update eks
+```bash
+# Get VPC ID
+export vpc_id=$(aws eks describe-cluster \
+  --name $cluster_name \
+  --query "cluster.resourcesVpcConfig.vpcId" \
+  --output text)
+
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update eks
+
 helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
   --set clusterName=$cluster_name \
@@ -207,14 +274,16 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   --set region=us-east-1 \
   --set vpcId=$vpc_id
 
+# Verify
 kubectl get deployment -n kube-system aws-load-balancer-controller
-\`\`\`
+```
 
 ---
 
-### PHASE 4 — EBS CSI Driver
+### PHASE 4 — EBS CSI Driver Setup
 
-\`\`\`bash
+```bash
+# Create IAM Role
 eksctl create iamserviceaccount \
   --name ebs-csi-controller-sa \
   --namespace kube-system \
@@ -224,50 +293,59 @@ eksctl create iamserviceaccount \
   --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
   --approve
 
+# Install EBS CSI Driver addon
 eksctl create addon \
   --name aws-ebs-csi-driver \
   --cluster $cluster_name \
   --service-account-role-arn arn:aws:iam::${account_id}:role/AmazonEKS_EBS_CSI_DriverRole \
   --force
 
+# Verify
 kubectl get pods -n kube-system | grep ebs
-\`\`\`
+```
 
 ---
 
-### PHASE 5 — Deploy RobotShop
+### PHASE 5 — Deploy RobotShop with Helm
 
-\`\`\`bash
-# Clone this repo
-git clone https://github.com/hmurafique/DevOps-Project-009.git
-cd DevOps-Project-009
+```bash
+# Clone RobotShop repo
+git clone https://github.com/instana/robot-shop.git
+cd robot-shop
+
+# Fix StorageClass (EKS uses gp2, not standard)
+sed -i 's/storageClassName: standard/storageClassName: gp2/' K8s/helm/values.yaml
 
 # Create namespace
 kubectl create namespace robot-shop
 
 # Deploy with Helm
-helm install robot-shop K8s/helm --namespace robot-shop
+helm install robot-shop K8s/helm \
+  --namespace robot-shop
 
-# Verify (wait 2-3 minutes)
+# Verify pods (takes 2-3 minutes)
 kubectl get pods -n robot-shop
-\`\`\`
+```
 
 ---
 
-### PHASE 6 — Configure Ingress
+### PHASE 6 — Configure Ingress (AWS ALB)
 
-\`\`\`bash
+```bash
 kubectl apply -f ingress.yaml
 
-# Wait for ALB (2-3 minutes)
+# Wait for ALB to provision (2-3 minutes)
 kubectl get ingress -n robot-shop
-\`\`\`
+```
 
-Access: \`http://<ALB-ADDRESS>\`
+Access the app:
+```
+http://<ALB-ADDRESS>
+```
 
 ---
 
-## 📊 Microservices
+## 📊 Deployed Microservices
 
 | Service | Technology | Port |
 |---------|-----------|------|
@@ -290,56 +368,69 @@ Access: \`http://<ALB-ADDRESS>\`
 
 | Issue | Root Cause | Fix |
 |-------|-----------|-----|
-| Pods Pending — Insufficient memory | t3.small not enough RAM | Use t3.medium nodes |
-| PVC Pending — standard StorageClass | EKS uses gp2, not standard | Already fixed in values.yaml |
-| ALB ADDRESS empty — 403 AccessDenied | IAM policy missing permissions | Use iam_policy.json v2.11.0 |
-| Backend service does not exist | web service not deployed | Run helm upgrade |
-| Shipping pod 0/1 | MySQL connection on startup | kubectl rollout restart deployment/shipping |
+| Pods `Pending` — Insufficient memory | t3.small not enough RAM | Use t3.medium node group |
+| `data-redis-0` PVC Pending | `standard` StorageClass not in EKS | Change to `gp2` in values.yaml |
+| ALB ADDRESS empty | IAM policy missing `DescribeListenerAttributes` | Update IAM policy to v2.11.0 |
+| `Backend service does not exist` | web service not deployed | Run `helm upgrade` to create web service |
+| StatefulSet immutable error | Can't patch StorageClass on running StatefulSet | Helm uninstall → fix values.yaml → reinstall |
+| Shipping pod `0/1` | MySQL connection refused on startup | `kubectl rollout restart deployment/shipping` |
 
 ---
 
 ## 💰 Cost Optimization
 
-\`\`\`bash
-# Scale down nodes when not in use
+Scale down nodes when not in use:
+
+```bash
+# Scale down to 0 (stop billing for EC2 nodes)
 eksctl scale nodegroup \
   --cluster robot-shop-cluster \
   --name robot-shop-ng-medium \
-  --nodes 0 --nodes-min 0 --nodes-max 3
+  --nodes 0 \
+  --nodes-min 0 \
+  --nodes-max 3
 
 # Scale back up
 eksctl scale nodegroup \
   --cluster robot-shop-cluster \
   --name robot-shop-ng-medium \
-  --nodes 2 --nodes-min 1 --nodes-max 3
-\`\`\`
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 3
+```
 
 ---
 
 ## 🧹 Cleanup
 
-\`\`\`bash
+```bash
+# Delete everything (EKS cluster, nodes, VPC, etc.)
 eksctl delete cluster --name robot-shop-cluster --region us-east-1
-\`\`\`
+```
+
+⚠️ This will delete all resources including ALB, node groups, and VPC.
 
 ---
 
 ## 📚 Reference
 
-- [Original Project](https://github.com/NotHarshhaa/DevOps-Projects/tree/master/DevOps-Project-15)
+- [Original Project Reference](https://github.com/NotHarshhaa/DevOps-Projects/tree/master/DevOps-Project-15)
 - [RobotShop by Instana](https://github.com/instana/robot-shop)
-- [eksctl Docs](https://eksctl.io)
+- [eksctl Documentation](https://eksctl.io)
 - [AWS ALB Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller)
+- [EBS CSI Driver](https://github.com/kubernetes-sigs/aws-ebs-csi-driver)
+- [Helm Documentation](https://helm.sh/docs)
 
 ---
 
 ## 🛠️ Author
 
-**Hafiz Muhammad Umar Rafique** — DevOps & Cloud Engineer
+**Hafiz Muhammad Umar Rafique**
+CloudOps & DevOps Engineer
 
 [![GitHub](https://img.shields.io/badge/GitHub-hmurafique-181717?style=flat&logo=github&logoColor=white)](https://github.com/hmurafique)
 [![DockerHub](https://img.shields.io/badge/DockerHub-hmurafique93-2496ED?style=flat&logo=docker&logoColor=white)](https://hub.docker.com/u/hmurafique93)
 
 ---
 
-> This project is part of a hands-on DevOps learning series based on [NotHarshhaa/DevOps-Projects](https://github.com/NotHarshhaa/DevOps-Projects). All implementation, fixes, and configurations are done independently from scratch.
+> **Note:** This project is part of a hands-on DevOps learning series based on [NotHarshhaa/DevOps-Projects](https://github.com/NotHarshhaa/DevOps-Projects). All implementation, fixes, and configurations are done independently from scratch.
